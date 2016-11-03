@@ -1,0 +1,85 @@
+#!/usr/bin/env node
+ 
+'use strict';
+
+var ihex = require('./ihex-web.js');
+var serial = require('serialport');
+var encoding = require('text-encoding');
+let argv = require('optimist')
+  .boolean('cors')
+  .argv;
+
+let port;
+
+
+function connect() {
+  var portName = argv.serial;
+  if (!portName) {
+    portName = "/dev/ttyACM0";
+  }
+
+  return new Promise((resolve, reject) => {
+     port = new serial(portName, {
+       baudRate: 57600,
+       parity: 'none',
+       dataBits: 8,
+       stopBits: 1,
+       // look for return and newline at the end of each data packet:
+       parser: serial.parsers.readline('\n')
+     });
+
+    port.on('open', () => {
+      console.log("Port successfully opened. Data rate: " + port.options.baudRate.toString());
+      resolve();
+    });
+
+    port.on('data', data => {
+      //let textDecoder = new encoding.TextDecoder();
+      console.log(data);
+    });
+
+    port.on('error', error => {
+      console.error(error);
+      reject();
+    });
+  });
+}
+
+function send(string) {
+  console.log("sending to serial: [" + string +"]\n");
+
+  let view = new encoding.TextEncoder('utf-8').encode(string);
+  port.write(view);
+};
+
+function convIHex(source) {
+  var array = ihex.intArrayFromString(source);
+  var ptr = ihex.allocate(array, 'i8', ihex.ALLOC_NORMAL);
+  var output = ihex._convert_ihex(ptr);
+ 
+  var iHexString = ihex.Pointer_stringify(output);
+  ihex._free(ptr);
+  return iHexString;
+}
+
+function transfer(source) {
+  send("set transfer ihex\r\n");
+  send("stop\r\n");
+  send("load\r\n")
+  send(convIHex(source));
+  send("run temp.dat\r\n");
+}
+
+let source = `
+  var grove_lcd = require('grove_lcd');
+  var glcd = grove_lcd.init();
+  glcd.setFunction(grove_lcd.GLCD_FS_ROWS_2 | grove_lcd.GLCD_FS_DOT_SIZE_LITTLE);
+  glcd.setDisplayState(grove_lcd.GLCD_DS_DISPLAY_ON);
+  glcd.clear();
+  glcd.print('hello world');
+  console.log("hi");
+`;
+
+connect().then(() => {
+  transfer(source);
+});

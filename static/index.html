@@ -1,0 +1,149 @@
+<html>
+  <head>
+    <title>Web USB shell (JavaScript Runtime for Zephyr)</title>
+  </head>
+
+
+<body>
+  <script src="ihex-web.js"></script>
+  <script>
+var serial = {};
+
+(function() {
+  'use strict';
+
+  serial.getPorts = function() {
+    return navigator.usb.getDevices().then(devices => {
+      return devices.map(device => new serial.Port(device));
+    });
+  };
+
+  serial.requestPort = function() {
+    const filters = [
+      { 'vendorId': 0x2341, 'productId': 0x8036 },
+      { 'vendorId': 0x2341, 'productId': 0x8037 },
+    ];
+    return navigator.usb.requestDevice(/*{ 'filters': filters }*/).then(
+      device => new serial.Port(device)
+    );
+  }
+
+  serial.Port = function(device) {
+    this.device_ = device;
+  };
+
+  serial.Port.prototype.connect = function() {
+    let readLoop = () => {
+      this.device_.transferIn(5, 64).then(result => {
+        this.onReceive(result.data);
+        readLoop();
+      }, error => {
+        this.onReceiveError(error);
+      });
+    };
+
+    return this.device_.open()
+        .then(() => {
+          if (this.device_.configuration === null) {
+            return this.device_.selectConfiguration(1);
+          }
+        })
+        .then(() => this.device_.claimInterface(2))
+        .then(() => this.device_.controlTransferOut({
+            'requestType': 'class',
+            'recipient': 'interface',
+            'request': 0x22,
+            'value': 0x01,
+            'index': 0x02}))
+        .then(() => {
+          readLoop();
+        });
+  };
+
+  serial.Port.prototype.disconnect = function() {
+    return this.device_.controlTransferOut({
+            'requestType': 'class',
+            'recipient': 'interface',
+            'request': 0x22,
+            'value': 0x00,
+            'index': 0x02})
+        .then(() => this.device_.close());
+  };
+
+  serial.Port.prototype.send = function(data) {
+    return this.device_.transferOut(4, data);
+  };
+})();
+
+let port;
+
+function connect() {
+      port.connect().then(() => {
+        port.onReceive = data => {
+          let textDecoder = new TextDecoder();
+          console.log(textDecoder.decode(data));
+        }
+        port.onReceiveError = error => {
+          console.error(error);
+        };
+      });
+}
+
+function send(string) {
+  console.log("sending to serial: [" + string +"]\n");
+
+  let view = new TextEncoder('utf-8').encode(string);
+  console.log(view);
+  if (port) {
+    port.send(view);
+  }
+};
+
+function convIHex(source) {
+  var array = intArrayFromString(source);
+  var ptr = allocate(array, 'i8', ALLOC_NORMAL);
+  var output = _convert_ihex(ptr);
+ 
+  var iHexString = Pointer_stringify(output);
+  _free(ptr);
+  return iHexString;
+}
+
+function transfer(source) {
+  send("set transfer ihex\r\n");
+  send("stop\r\n");
+  send("load\r\n")
+  send(convIHex(source));
+  send("run temp.dat" + '\n');
+}
+
+window.onload = _ => {
+    serial.getPorts().then(ports => {
+      if (ports.length == 0) {
+        console.log('No device found.');
+      } else {
+        console.log('Connecting...');
+        port = ports[0];
+        connect();
+      }
+    });
+
+
+  document.querySelector("#submit").onclick = () => {
+    let source = document.querySelector("#source").value;
+    transfer(source);
+  }
+
+}
+  </script>
+
+ <textarea rows="25" cols="80" id="source">
+  var grove_lcd = require('grove_lcd');
+  var glcd = grove_lcd.init();
+  glcd.setFunction(grove_lcd.GLCD_FS_ROWS_2 | grove_lcd.GLCD_FS_DOT_SIZE_LITTLE);
+  glcd.setDisplayState(grove_lcd.GLCD_DS_DISPLAY_ON);
+  glcd.clear();
+  glcd.print('hello world');
+ </textarea>
+ <br><button id="submit">Run</button>
+</body>
