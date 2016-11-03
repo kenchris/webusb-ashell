@@ -43,31 +43,33 @@ var serial = {};
     };
 
     return this.device_.open()
-        .then(() => {
-          if (this.device_.configuration === null) {
-            return this.device_.selectConfiguration(1);
-          }
-        })
-        .then(() => this.device_.claimInterface(2))
-        .then(() => this.device_.controlTransferOut({
-            'requestType': 'class',
-            'recipient': 'interface',
-            'request': 0x22,
-            'value': 0x01,
-            'index': 0x02}))
-        .then(() => {
-          readLoop();
-        });
+      .then(() => {
+        if (this.device_.configuration === null) {
+          return this.device_.selectConfiguration(1);
+        }
+      })
+      .then(() => this.device_.claimInterface(2))
+      .then(() => this.device_.controlTransferOut({
+        'requestType': 'class',
+        'recipient': 'interface',
+        'request': 0x22,
+        'value': 0x01,
+        'index': 0x02
+      }))
+      .then(() => {
+        readLoop();
+      });
   };
 
   serial.Port.prototype.disconnect = function() {
     return this.device_.controlTransferOut({
-            'requestType': 'class',
-            'recipient': 'interface',
-            'request': 0x22,
-            'value': 0x00,
-            'index': 0x02})
-        .then(() => this.device_.close());
+      'requestType': 'class',
+      'recipient': 'interface',
+      'request': 0x22,
+      'value': 0x00,
+      'index': 0x02
+    })
+    .then(() => this.device_.close());
   };
 
   serial.Port.prototype.send = function(data) {
@@ -78,19 +80,19 @@ var serial = {};
 let port;
 
 function connect() {
-      port.connect().then(() => {
-        port.onReceive = data => {
-          let textDecoder = new TextDecoder();
-          console.log(textDecoder.decode(data));
-        }
-        port.onReceiveError = error => {
-          console.error(error);
-        };
-      });
+  port.connect().then(() => {
+    port.onReceive = data => {
+      let textDecoder = new TextDecoder();
+      console.log(textDecoder.decode(data));
+    }
+    port.onReceiveError = error => {
+      console.error(error);
+    };
+  });
 }
 
 function send(string) {
-  console.log("sending to serial: [" + string +"]\n");
+  console.log(`Sending to serial: [${string}]\n`);
 
   let view = new TextEncoder('utf-8').encode(string);
   console.log(view);
@@ -103,7 +105,7 @@ function convIHex(source) {
   var array = intArrayFromString(source);
   var ptr = allocate(array, 'i8', ALLOC_NORMAL);
   var output = _convert_ihex(ptr);
- 
+
   var iHexString = Pointer_stringify(output);
   _free(ptr);
   return iHexString;
@@ -133,25 +135,24 @@ glcd.print("What's 2*8+3? " + num);`;
 let editor;
 
 require.config({ paths: { 'vs': 'node_modules/monaco-editor/min/vs' }});
-	require(['vs/editor/editor.main'], function() {
-		editor = monaco.editor.create(document.getElementById('source'), {
-			value: sample,
-			language: 'javascript'
-		});
-	});
+  require(['vs/editor/editor.main'], function() {
+    editor = monaco.editor.create(document.getElementById('source'), {
+      value: sample,
+      language: 'javascript'
+    });
+  });
 
 window.onload = _ => {
-    serial.getPorts().then(ports => {
-      if (ports.length == 0) {
-        console.log('No existing device found.');
-        document.querySelector("#connect").style = "visibility: initial";
-      } else {
-        console.log('Connecting...');
-        port = ports[0];
-        connect();
-      }
-    });
-
+  serial.getPorts().then(ports => {
+    if (ports.length == 0) {
+      console.log('No existing device found.');
+      document.querySelector("#connect").style = "visibility: initial";
+    } else {
+      console.log('Connecting...');
+      port = ports[0];
+      connect();
+    }
+  });
 
   document.querySelector("#submit").onclick = () => {
     let source = editor.getValue();
@@ -164,10 +165,9 @@ window.onload = _ => {
       this.style = "visibility: hidden";
       connect();
     });
-  }  
-
+  }
 }
-  </script>
+ </script>
 
  <div style="width:800px; height:400px; border:1px solid grey" id="source">
  </div>
