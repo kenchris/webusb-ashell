@@ -5,6 +5,7 @@
 
 
 <body>
+  <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
   <script src="ihex-web.js"></script>
   <script>
 var serial = {};
@@ -116,10 +117,34 @@ function transfer(source) {
   send("run temp.dat" + '\n');
 }
 
+let sample = `// LCD Demo
+var grove_lcd = require('grove_lcd');
+
+var glcd = grove_lcd.init();
+
+glcd.setFunction(grove_lcd.GLCD_FS_ROWS_2 | grove_lcd.GLCD_FS_DOT_SIZE_LITTLE);
+glcd.setDisplayState(grove_lcd.GLCD_DS_DISPLAY_ON);
+
+glcd.clear();
+
+var num = 2 * 8 + 3;
+glcd.print("What's 2*8+3? " + num);`;
+
+let editor;
+
+require.config({ paths: { 'vs': 'node_modules/monaco-editor/min/vs' }});
+	require(['vs/editor/editor.main'], function() {
+		editor = monaco.editor.create(document.getElementById('source'), {
+			value: sample,
+			language: 'javascript'
+		});
+	});
+
 window.onload = _ => {
     serial.getPorts().then(ports => {
       if (ports.length == 0) {
-        console.log('No device found.');
+        console.log('No existing device found.');
+        document.querySelector("#connect").style = "visibility: initial";
       } else {
         console.log('Connecting...');
         port = ports[0];
@@ -129,20 +154,23 @@ window.onload = _ => {
 
 
   document.querySelector("#submit").onclick = () => {
-    let source = document.querySelector("#source").value;
+    let source = editor.getValue();
     transfer(source);
   }
+
+  document.querySelector("#connect").onclick = function() {
+    serial.requestPort().then(selectedPort => {
+      port = selectedPort;
+      this.style = "visibility: hidden";
+      connect();
+    });
+  }  
 
 }
   </script>
 
- <textarea rows="25" cols="80" id="source">
-  var grove_lcd = require('grove_lcd');
-  var glcd = grove_lcd.init();
-  glcd.setFunction(grove_lcd.GLCD_FS_ROWS_2 | grove_lcd.GLCD_FS_DOT_SIZE_LITTLE);
-  glcd.setDisplayState(grove_lcd.GLCD_DS_DISPLAY_ON);
-  glcd.clear();
-  glcd.print('hello world');
- </textarea>
+ <div style="width:800px; height:400px; border:1px solid grey" id="source">
+ </div>
  <br><button id="submit">Run</button>
+ <button id="connect" style="visibility: hidden">Connect</button>
 </body>

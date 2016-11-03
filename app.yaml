@@ -12,6 +12,10 @@ handlers:
   static_files: static/ihex-web.js
   upload: static/ihex-web.js
 
+- url: /node_modules
+  static_dir: static/node_modules
+  secure: always
+
 - url: .*
   script: main.app
   secure: always
@@ -28,5 +32,4 @@ skip_files:
 - ^(.*/)?.*/RCS/.*
 - ^(.*/)?\..*
 - ^(.*/)?.*\.bak$
-- ^(.*/)?node_modules/.*
 - ^.*.md|markdown
