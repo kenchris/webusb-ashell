@@ -16,6 +16,10 @@ handlers:
   static_dir: static/node_modules
   secure: always
 
+- url: /samples
+  static_dir: static/samples
+  secure: always
+
 - url: .*
   script: main.app
   secure: always

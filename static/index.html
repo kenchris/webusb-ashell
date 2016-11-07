@@ -119,18 +119,39 @@ function transfer(source) {
   send("run temp.dat" + '\n');
 }
 
-let sample = `// LCD Demo
-var grove_lcd = require('grove_lcd');
+let sample = 
+`var lcd = require('grove_lcd');
+var aio = require("aio");
+var pins = require("arduino101_pins");
+//var performance = require("performance");
 
-var glcd = grove_lcd.init();
+var display = lcd.init();
 
-glcd.setFunction(grove_lcd.GLCD_FS_ROWS_2 | grove_lcd.GLCD_FS_DOT_SIZE_LITTLE);
-glcd.setDisplayState(grove_lcd.GLCD_DS_DISPLAY_ON);
+display.setFunction(lcd.GLCD_FS_ROWS_2 | lcd.GLCD_FS_DOT_SIZE_LITTLE);
+display.setDisplayState(lcd.GLCD_DS_DISPLAY_ON);
 
-glcd.clear();
+display.clear();
 
-var num = 2 * 8 + 3;
-glcd.print("What's 2*8+3? " + num);`;
+var tmp36 = aio.open({ device: 0, pin: pins.A0 });
+
+var now_ = 1;
+var lastTemp;
+var now = //performance.now;
+function() { return now_++ }
+
+tmp36.on("change", function(data) {
+  var voltage = (data / 4096.0) * 3.3;
+  var celsius = (voltage - 0.5) * 100 + 0.5;
+
+  if (celsius != lastTemp) {
+    lastTemp = celsius;
+    display.clear();
+    display.setCursorPos(0, 0);
+    display.print("Temp: " + celsius + "C");
+    display.setCursorPos(0, 1);
+    display.print("Updated: " + now());
+  }
+});`;
 
 let editor;
 
@@ -154,6 +175,41 @@ window.onload = _ => {
     }
   });
 
+  let files = [
+    "AIO.js",
+    "AutoButton.js",
+    "Buffer.js",
+    "ButtonLEDs.js",
+    "Console.js",
+    "HeartRateDemo.js",
+    "I2CBMP280.js",
+    "PWM.js",
+    "TrafficLight.js",
+    "UART.js", 
+    "WebBluetoothGroveLcdDemo.js",
+    "BLE.js",
+    "ButtonLEDsAsync.js",
+    "ButtonLEDs-k64f.js",
+    "GroveLCD.js",
+    "HelloWorld.js",     
+    "I2C.js", 
+    "RGB.js",
+    "Timers.js",
+    "TwoButtons.js",    
+    "WebBluetoothDemo.js"
+  ];
+  let select = document.querySelector("#select");
+  select.onchange = ev => {
+    fetch(`samples/${ev.target.value}`)
+    .then(response => response.text())
+    .then(text => editor.setValue(text));
+  }
+
+  for (file of files.sort()) {
+    let entry = new Option(file, file);
+    select.appendChild(entry);
+  }
+
   document.querySelector("#submit").onclick = () => {
     let source = editor.getValue();
     transfer(source);
@@ -173,4 +229,5 @@ window.onload = _ => {
  </div>
  <br><button id="submit">Run</button>
  <button id="connect" style="visibility: hidden">Connect</button>
+ <select id="select"></select>
 </body>
