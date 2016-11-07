@@ -57,7 +57,7 @@ var serial = {};
         'index': 0x02
       }))
       .then(() => {
-        readLoop();
+        //readLoop();
       });
   };
 
@@ -75,12 +75,20 @@ var serial = {};
   serial.Port.prototype.send = function(data) {
     return this.device_.transferOut(2, data);
   };
+
+  serial.Port.prototype.read = async function() {
+    let res = await this.device_.transferIn(3, 64);
+    let textDecoder = new TextDecoder();
+    return textDecoder.decode(res.data);
+  }
 })();
 
 let port;
 
 function connect() {
   port.connect().then(() => {
+    // Get rid of ashell menu.
+    send("set transfer ihex\r\n", "[ECMD]");
     port.onReceive = data => {
       let textDecoder = new TextDecoder();
       console.log(textDecoder.decode(data));
@@ -91,13 +99,21 @@ function connect() {
   });
 }
 
-function send(string) {
+async function send(string, expects) {
   console.log(`Sending to serial: [${string}]\n`);
 
   let view = new TextEncoder('utf-8').encode(string);
-  console.log(view);
-  if (port) {
-    port.send(view);
+  let res = await port.send(view);
+
+  if (res.status == "ok") {
+    let value = "";
+    let res = "";
+
+    while (!res.includes(expects)) {
+      res = await port.read();
+      value += res;
+    }
+    console.log("Reply: " + value);
   }
 };
 
@@ -111,12 +127,17 @@ function convIHex(source) {
   return iHexString;
 }
 
-function transfer(source) {
-  send("set transfer ihex\r\n");
-  send("stop\r\n");
-  send("load\r\n")
-  send(convIHex(source));
-  send("run temp.dat" + '\n');
+async function transfer(source) {
+  await send("set transfer ihex\r\n", "[ECMD]");
+  await send("stop\r\n", "[ECMD]");
+  await send("load\r\n", "[ECMD]")
+  let ihex = convIHex(source);
+  console.log(source);
+  let line = ihex;
+  //for (let line of ihex.split('\n')) {
+    await send(line + '\n', "[ACK]");
+  //}
+  await send("run temp.dat" + '\n', "[ECMD]");
 }
 
 let sample = 
