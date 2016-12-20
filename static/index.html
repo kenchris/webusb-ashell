@@ -7,6 +7,7 @@
 <body>
   <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
   <script src="ihex-web.js"></script>
+  <script src="hterm_all.js"></script>
   <script>
 var serial = {};
 
@@ -91,12 +92,40 @@ function connect() {
     send("set transfer ihex\r\n", "[ECMD]");
     port.onReceive = data => {
       let textDecoder = new TextDecoder();
-      console.log(textDecoder.decode(data));
+      print(textDecoder.decode(data));
     }
     port.onReceiveError = error => {
       console.error(error);
     };
   });
+}
+
+  hterm.defaultStorage = new lib.Storage.Local();
+  let textEncoder = new TextEncoder();
+  let t = new hterm.Terminal();
+  t.onTerminalReady = () => {
+    console.log('Terminal ready.');
+    let io = t.io.push();
+
+    io.onVTKeystroke = str => {
+      //if (port !== undefined) {
+      //  port.send(textEncoder.encode(str)).catch(error => {
+      //    t.io.println('Send error: ' + error);
+      //  });
+      //}
+    };
+
+    io.sendString = str => {
+      //if (port !== undefined) {
+      //  port.send(textEncoder.encode(str)).catch(error => {
+      //    t.io.println('Send error: ' + error);
+      //  });
+      //}
+    };
+  };
+
+function print(value) {
+  t.io.println(value);
 }
 
 async function send(string, expects) {
@@ -113,7 +142,7 @@ async function send(string, expects) {
       res = await port.read();
       value += res;
     }
-    console.log("Reply: " + value);
+    print(value);
   }
 };
 
@@ -127,17 +156,32 @@ function convIHex(source) {
   return iHexString;
 }
 
+function stripComments(source) {
+  return source.replace(RegExp("[ \t]*//.*", "g"), "");
+}
+
+function stripConsole(source) {
+  return source.replace(RegExp("console\.[a-zA-Z]+\(.*\)", "g"), "");
+}
+
+function stripBlankLines(source) {
+  return source.replace(RegExp("^[ \t]*\n", "gm"), "");
+}
+
 async function transfer(source) {
   await send("set transfer ihex\r\n", "[ECMD]");
   await send("stop\r\n", "[ECMD]");
   await send("load\r\n", "[ECMD]")
-  let ihex = convIHex(source);
-  console.log(source);
+
+  let stripped = stripBlankLines(stripComments(stripConsole(source)));
+  let ihex = convIHex(stripped);
+  console.log(stripped);
+
   let line = ihex;
-  //for (let line of ihex.split('\n')) {
+  for (let line of ihex.split('\n')) {
     await send(line + '\n', "[ACK]");
-  //}
-  await send("run temp.dat" + '\n', "[ECMD]");
+  }
+  await send("run temp.dat" + '\r\n', "[ECMD]");
 }
 
 let sample = 
@@ -243,6 +287,16 @@ window.onload = _ => {
       connect();
     });
   }
+
+  document.querySelector("#send-cmd").onclick = () => {
+    let cmd = document.querySelector("#cmd").value;
+    send(cmd + "\r\n", "[ECMD]");
+  }
+
+  t.decorate(document.querySelector('#terminal'));
+  t.setWidth(80);
+  t.setHeight(24);
+  t.installKeyboard();
 }
  </script>
 
@@ -251,4 +305,9 @@ window.onload = _ => {
  <br><button id="submit">Run</button>
  <button id="connect" style="visibility: hidden">Connect</button>
  <select id="select"></select>
+ <br>
+ <div id="terminal" style="position: relative; width:800px; height:400px;">
+ </div>
+ <input id="cmd"></input><button id="send-cmd">Send Command</button>
+
 </body>
