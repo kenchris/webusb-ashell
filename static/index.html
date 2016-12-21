@@ -10,6 +10,7 @@
   <script src="hterm_all.js"></script>
   <script>
 var serial = {};
+var term = {};
 
 (function() {
   'use strict';
@@ -58,7 +59,7 @@ var serial = {};
         'index': 0x02
       }))
       .then(() => {
-        //readLoop();
+        readLoop();
       });
   };
 
@@ -88,11 +89,9 @@ let port;
 
 function connect() {
   port.connect().then(() => {
-    // Get rid of ashell menu.
-    send("set transfer ihex\r\n", "[ECMD]");
     port.onReceive = data => {
       let textDecoder = new TextDecoder();
-      print(textDecoder.decode(data));
+      term.io.print(textDecoder.decode(data));
     }
     port.onReceiveError = error => {
       console.error(error);
@@ -100,50 +99,23 @@ function connect() {
   });
 }
 
-  hterm.defaultStorage = new lib.Storage.Local();
-  let textEncoder = new TextEncoder();
-  let t = new hterm.Terminal();
-  t.onTerminalReady = () => {
-    console.log('Terminal ready.');
-    let io = t.io.push();
-
-    io.onVTKeystroke = str => {
-      //if (port !== undefined) {
-      //  port.send(textEncoder.encode(str)).catch(error => {
-      //    t.io.println('Send error: ' + error);
-      //  });
-      //}
-    };
-
-    io.sendString = str => {
-      //if (port !== undefined) {
-      //  port.send(textEncoder.encode(str)).catch(error => {
-      //    t.io.println('Send error: ' + error);
-      //  });
-      //}
-    };
-  };
-
-function print(value) {
-  t.io.println(value);
+function escape(value) {
+  return value
+    .replace(/[\"]/g, '\\"')
+    .replace(/[\\]/g, '\\\\')
+    .replace(/[\/]/g, '\\/')
+    .replace(/[\b]/g, '\\b')
+    .replace(/[\f]/g, '\\f')
+    .replace(/[\n]/g, '\\n')
+    .replace(/[\r]/g, '\\r')
+    .replace(/[\t]/g, '\\t') ; 
 }
 
 async function send(string, expects) {
-  console.log(`Sending to serial: [${string}]\n`);
+  console.log(escape(`Sending via USB: [${string}]`));
 
   let view = new TextEncoder('utf-8').encode(string);
-  let res = await port.send(view);
-
-  if (res.status == "ok") {
-    let value = "";
-    let res = "";
-
-    while (!res.includes(expects)) {
-      res = await port.read();
-      value += res;
-    }
-    print(value);
-  }
+  return port.send(view);
 };
 
 function convIHex(source) {
@@ -169,9 +141,9 @@ function stripBlankLines(source) {
 }
 
 async function transfer(source) {
-  await send("set transfer ihex\r\n", "[ECMD]");
-  await send("stop\r\n", "[ECMD]");
-  await send("load\r\n", "[ECMD]")
+  await send("set transfer ihex\n", "[ECMD]");
+  await send("stop\n", "[ECMD]");
+  await send("load\n", "[ECMD]")
 
   let stripped = stripBlankLines(stripComments(stripConsole(source)));
   let ihex = convIHex(stripped);
@@ -181,7 +153,8 @@ async function transfer(source) {
   for (let line of ihex.split('\n')) {
     await send(line + '\n', "[ACK]");
   }
-  await send("run temp.dat" + '\r\n', "[ECMD]");
+  await send("run temp.dat" + '\n', "[ECMD]");
+  send("set transfer raw\n");
 }
 
 let sample = 
@@ -240,6 +213,32 @@ window.onload = _ => {
     }
   });
 
+  hterm.defaultStorage = new lib.Storage.Local();
+  let textEncoder = new TextEncoder();
+
+  term = new hterm.Terminal();
+  term.decorate(document.querySelector('#terminal'));
+  term.setWidth(80);
+  term.setHeight(24);
+  term.installKeyboard();
+
+  term.onTerminalReady = () => {
+    console.log('Terminal ready.');
+    let io = term.io.push();
+
+    io.onVTKeystroke = str => {
+      send(str).catch(error => {
+        term.io.println('Send error: ' + error);
+      });
+    };
+
+    io.sendString = str => {
+      send(str).catch(error => {
+        term.io.println('Send error: ' + error);
+      });
+    };
+  };
+
   let files = [
     "AIO.js",
     "AutoButton.js",
@@ -287,16 +286,6 @@ window.onload = _ => {
       connect();
     });
   }
-
-  document.querySelector("#send-cmd").onclick = () => {
-    let cmd = document.querySelector("#cmd").value;
-    send(cmd + "\r\n", "[ECMD]");
-  }
-
-  t.decorate(document.querySelector('#terminal'));
-  t.setWidth(80);
-  t.setHeight(24);
-  t.installKeyboard();
 }
  </script>
 
@@ -305,9 +294,8 @@ window.onload = _ => {
  <br><button id="submit">Run</button>
  <button id="connect" style="visibility: hidden">Connect</button>
  <select id="select"></select>
- <br>
+ <br><br>
  <div id="terminal" style="position: relative; width:800px; height:400px;">
  </div>
- <input id="cmd"></input><button id="send-cmd">Send Command</button>
 
 </body>
