@@ -15,26 +15,24 @@ var term = {};
 (function() {
   'use strict';
 
-  serial.getPorts = function() {
-    return navigator.usb.getDevices().then(devices => {
-      return devices.map(device => new serial.Port(device));
-    });
+  serial.getPorts = async function() {
+    let devices = await navigator.usb.getDevices();
+    return devices.map(device => new serial.Port(device));
   };
 
-  serial.requestPort = function() {
+  serial.requestPort = async function() {
     const filters = [
       { 'vendorId': 0x8086, 'productId': 0xF8A1 },
     ];
-    return navigator.usb.requestDevice({ 'filters': filters }).then(
-      device => new serial.Port(device)
-    );
+    let device = await navigator.usb.requestDevice({ 'filters': filters });
+    return new serial.Port(device);
   }
 
   serial.Port = function(device) {
     this.device_ = device;
   };
 
-  serial.Port.prototype.connect = function() {
+  serial.Port.prototype.connect = async function() {
     let readLoop = () => {
       this.device_.transferIn(3, 64).then(result => {
         this.onReceive(result.data);
@@ -44,34 +42,34 @@ var term = {};
       });
     };
 
-    return this.device_.open()
-      .then(() => {
-        if (this.device_.configuration === null) {
-          return this.device_.selectConfiguration(1);
-        }
-      })
-      .then(() => this.device_.claimInterface(2))
-      .then(() => this.device_.controlTransferOut({
+    await this.device_.open();
+
+    if (this.device_.configuration === null) {
+      await this.device_.selectConfiguration(1);
+    }
+
+    await this.device_.claimInterface(2);
+    await this.device_.controlTransferOut({
         'requestType': 'class',
         'recipient': 'interface',
         'request': 0x22,
         'value': 0x01,
         'index': 0x02
-      }))
-      .then(() => {
-        readLoop();
-      });
+    });
+
+    readLoop();
   };
 
-  serial.Port.prototype.disconnect = function() {
-    return this.device_.controlTransferOut({
+  serial.Port.prototype.disconnect = async function() {
+    await this.device_.controlTransferOut({
       'requestType': 'class',
       'recipient': 'interface',
       'request': 0x22,
       'value': 0x00,
       'index': 0x02
-    })
-    .then(() => this.device_.close());
+    });
+
+    return this.device_.close();
   };
 
   serial.Port.prototype.send = function(data) {
@@ -87,32 +85,33 @@ var term = {};
 
 let port;
 
-function connect() {
-  port.connect().then(() => {
-    let raw = true;
+async function connect() {
+  let raw = true;
+  let textDecoder = new TextDecoder();
 
-    port.onReceive = data => {
-      let textDecoder = new TextDecoder();
-      let str = textDecoder.decode(data);
+  port.onReceive = data => {
+    let str = textDecoder.decode(data);
 
-      switch(str) {
-        case "ihex":
-          raw = false;
-          break;
-        case "raw":
-          raw = true;
-      }
-
-      let skip = !raw && /^(\n|\[.*\])/.test(str);
-
-      if (!skip) {
-        term.io.print(str);
-      }
+    switch(str) {
+      case "ihex":
+        raw = false;
+        break;
+      case "raw":
+        raw = true;
     }
-    port.onReceiveError = error => {
-      console.error(error);
-    };
-  });
+
+    let skip = !raw && /^(\n|\[.*\])/.test(str);
+
+    if (!skip) {
+      term.io.print(str);
+    }
+  }
+
+  port.onReceiveError = error => {
+    console.error(error);
+  };
+
+  await port.connect();
 }
 
 function escape(value) {
@@ -124,7 +123,7 @@ function escape(value) {
     .replace(/[\f]/g, '\\f')
     .replace(/[\n]/g, '\\n')
     .replace(/[\r]/g, '\\r')
-    .replace(/[\t]/g, '\\t'); 
+    .replace(/[\t]/g, '\\t');
 }
 
 async function send(string, expects) {
@@ -170,10 +169,10 @@ async function transfer(source) {
     await send(line + '\n', "[ACK]");
   }
   await send("run temp.dat" + '\n', "[ECMD]");
-  send("set transfer raw\n");
+  await send("set transfer raw\n");
 }
 
-let sample = 
+let sample =
 `var lcd = require('grove_lcd');
 var aio = require("aio");
 var pins = require("arduino101_pins");
@@ -265,17 +264,17 @@ window.onload = _ => {
     "I2CBMP280.js",
     "PWM.js",
     "TrafficLight.js",
-    "UART.js", 
+    "UART.js",
     "WebBluetoothGroveLcdDemo.js",
     "BLE.js",
     "ButtonLEDsAsync.js",
     "ButtonLEDs-k64f.js",
     "GroveLCD.js",
-    "HelloWorld.js",     
-    "I2C.js", 
+    "HelloWorld.js",
+    "I2C.js",
     "RGB.js",
     "Timers.js",
-    "TwoButtons.js",    
+    "TwoButtons.js",
     "WebBluetoothDemo.js"
   ];
   let select = document.querySelector("#select");
