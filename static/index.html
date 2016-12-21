@@ -145,10 +145,6 @@ function stripComments(source) {
   return source.replace(RegExp("[ \t]*//.*", "g"), "");
 }
 
-function stripConsole(source) {
-  return source; //.replace(RegExp("console\.[a-zA-Z]+\(.*\)", "g"), "");
-}
-
 function stripBlankLines(source) {
   return source.replace(RegExp("^[ \t]*\n", "gm"), "");
 }
@@ -158,7 +154,7 @@ async function transfer(source) {
   await send("stop\n", "[ECMD]");
   await send("load\n", "[ECMD]")
 
-  let stripped = stripBlankLines(stripComments(stripConsole(source)));
+  let stripped = stripBlankLines(stripComments(source));
   let ihex = convIHex(stripped);
   console.log(stripped);
 
