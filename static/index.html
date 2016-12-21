@@ -108,7 +108,11 @@ async function connect() {
   }
 
   port.onReceiveError = error => {
-    console.error(error);
+    if (error instanceof DOMException && error.message == "Device unavailable.") {
+      autoconnect();
+    } else {
+      console.error(error);
+    }
   };
 
   await port.connect();
@@ -148,7 +152,7 @@ function stripComments(source) {
 }
 
 function stripConsole(source) {
-  return source.replace(RegExp("console\.[a-zA-Z]+\(.*\)", "g"), "");
+  return source; //.replace(RegExp("console\.[a-zA-Z]+\(.*\)", "g"), "");
 }
 
 function stripBlankLines(source) {
@@ -209,15 +213,30 @@ tmp36.on("change", function(data) {
 let editor;
 
 require.config({ paths: { 'vs': 'node_modules/monaco-editor/min/vs' }});
-  require(['vs/editor/editor.main'], function() {
-    editor = monaco.editor.create(document.getElementById('source'), {
-      value: sample,
-      language: 'javascript'
-    });
+require(['vs/editor/editor.main'], function() {
+  editor = monaco.editor.create(document.getElementById('source'), {
+    value: sample,
+    language: 'javascript'
   });
+});
+
+async function autoconnect() {
+  let timeout = 1000;
+  async function begin() {
+    let ports = await serial.getPorts();
+    if (ports.length == 0) {
+      setTimeout(begin, timeout);
+      return;
+    }
+    console.log('Reconnecting... ' + ports[0]);
+    port = ports[0];
+    connect();
+  }
+  setTimeout(begin, timeout);
+}
 
 window.onload = _ => {
-  serial.getPorts().then(ports => {
+    serial.getPorts().then(ports => {
     if (ports.length == 0) {
       console.log('No existing device found.');
       document.querySelector("#connect").style = "visibility: initial";
