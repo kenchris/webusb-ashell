@@ -89,9 +89,25 @@ let port;
 
 function connect() {
   port.connect().then(() => {
+    let raw = true;
+
     port.onReceive = data => {
       let textDecoder = new TextDecoder();
-      term.io.print(textDecoder.decode(data));
+      let str = textDecoder.decode(data);
+
+      switch(str) {
+        case "ihex":
+          raw = false;
+          break;
+        case "raw":
+          raw = true;
+      }
+
+      let skip = !raw && /^(\n|\[.*\])/.test(str);
+
+      if (!skip) {
+        term.io.print(str);
+      }
     }
     port.onReceiveError = error => {
       console.error(error);
@@ -108,7 +124,7 @@ function escape(value) {
     .replace(/[\f]/g, '\\f')
     .replace(/[\n]/g, '\\n')
     .replace(/[\r]/g, '\\r')
-    .replace(/[\t]/g, '\\t') ; 
+    .replace(/[\t]/g, '\\t'); 
 }
 
 async function send(string, expects) {
