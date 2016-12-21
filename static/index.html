@@ -75,12 +75,6 @@ var term = {};
   serial.Port.prototype.send = function(data) {
     return this.device_.transferOut(2, data);
   };
-
-  serial.Port.prototype.read = async function() {
-    let res = await this.device_.transferIn(3, 64);
-    let textDecoder = new TextDecoder();
-    return textDecoder.decode(res.data);
-  }
 })();
 
 let port;
