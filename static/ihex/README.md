@@ -10,4 +10,4 @@ $ ./emsdk activate clang-incoming-64bit emscripten-incoming-64bit sdk-incoming-6
 $ source ./emsdk_env.sh
 $ cd ..
 
-$ emcc ihex/kk_ihex_write.c convert.c -s WASM=1 -o ihex.html  -s EXPORTED_FUNCTIONS="['_convert_ihex']"
+$ emcc ihex/kk_ihex_write.c convert.c -s WASM=1 -o ihex.js  -s EXPORTED_FUNCTIONS="['_convert_ihex']"
