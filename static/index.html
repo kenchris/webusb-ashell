@@ -6,11 +6,24 @@
 
 <body>
   <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
-  <script src="ihex-web.js"></script>
   <script src="hterm_all.js"></script>
   <script>
 var serial = {};
 var term = {};
+var Module = {};
+
+fetch('ihex/ihex.wasm').then(response =>
+    response.arrayBuffer()
+).then(buffer => {
+    Module.wasmBinary = buffer;
+    var script = document.createElement('script');
+    // This file compiles and instantiates the module:
+    script.src = "ihex/ihex.js";
+    script.onload = () => {
+      Module.convert_ihex = Module.cwrap('convert_ihex', 'array', ['array']);
+    }
+    document.body.appendChild(script);
+});
 
 (function() {
   'use strict';
@@ -131,16 +144,6 @@ async function send(string, expects) {
   return port.send(view);
 };
 
-function convIHex(source) {
-  var array = intArrayFromString(source);
-  var ptr = allocate(array, 'i8', ALLOC_NORMAL);
-  var output = _convert_ihex(ptr);
-
-  var iHexString = Pointer_stringify(output);
-  _free(ptr);
-  return iHexString;
-}
-
 function stripComments(source) {
   return source.replace(RegExp("[ \t]*//.*", "g"), "");
 }
@@ -151,6 +154,15 @@ function stripConsole(source) {
 
 function stripBlankLines(source) {
   return source.replace(RegExp("^[ \t]*\n", "gm"), "");
+}
+
+function convIHex(source) {
+  var array = intArrayFromString(source);
+  var ptr = Module.convert_ihex(array);
+  var result = Pointer_stringify(ptr);
+  _free(ptr);
+
+  return result;
 }
 
 async function transfer(source) {
