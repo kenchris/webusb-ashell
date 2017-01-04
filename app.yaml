@@ -20,6 +20,10 @@ handlers:
   static_dir: static/samples
   secure: always
 
+- url: /hterm_all.js
+  static_files: static/hterm_all.js
+  upload: static/hterm_all.js
+
 - url: .*
   script: main.app
   secure: always
