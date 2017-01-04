@@ -11,3 +11,9 @@ $ source ./emsdk_env.sh
 $ cd ..
 
 $ emcc ihex/kk_ihex_write.c convert.c -s WASM=1 -o ihex.js  -s EXPORTED_FUNCTIONS="['_convert_ihex']"
+
+To minimize size add:
+-s NO_FILESYSTEM=1 -s EXPORTED_RUNTIME_METHODS="['intArrayFromString', 'cwrap']"
+
+Default settings here:
+https://github.com/kripken/emscripten/blob/master/src/settings.js

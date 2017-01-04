@@ -157,7 +157,7 @@ function stripBlankLines(source) {
 }
 
 function convIHex(source) {
-  var array = intArrayFromString(source);
+  var array = Module.intArrayFromString(source);
   var ptr = Module.convert_ihex(array);
   var result = Pointer_stringify(ptr);
   _free(ptr);
