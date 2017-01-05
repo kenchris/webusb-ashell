@@ -13,16 +13,28 @@ var term = {};
 var Module = {};
 
 fetch('ihex/ihex.wasm').then(response =>
-    response.arrayBuffer()
+  response.arrayBuffer()
 ).then(buffer => {
-    Module.wasmBinary = buffer;
-    var script = document.createElement('script');
-    // This file compiles and instantiates the module:
-    script.src = "ihex/ihex.js";
-    script.onload = () => {
-      Module.convert_ihex = Module.cwrap('convert_ihex', 'array', ['array']);
+  // Required by Emscripten "preamble.js"
+  Module.wasmBinary = buffer;
+
+  var script = document.createElement('script');
+  // Import our minimal "preamble.js":
+  // https://kripken.github.io/emscripten-site/docs/api_reference/preamble.js.html
+  script.src = "ihex/ihex.js";
+
+  script.onload = () => {
+    let strtoihex = Module.cwrap(
+      'strtoihex', 'array', ['array']
+    );
+
+    ihexFromString = function(source) {
+      return Pointer_stringify(
+        strtoihex(Module.intArrayFromString(source))
+      );
     }
-    document.body.appendChild(script);
+  }
+  document.body.appendChild(script);
 });
 
 (function() {
@@ -156,22 +168,13 @@ function stripBlankLines(source) {
   return source.replace(RegExp("^[ \t]*\n", "gm"), "");
 }
 
-function convIHex(source) {
-  var array = Module.intArrayFromString(source);
-  var ptr = Module.convert_ihex(array);
-  var result = Pointer_stringify(ptr);
-  _free(ptr);
-
-  return result;
-}
-
 async function transfer(source) {
   await send("set transfer ihex\n", "[ECMD]");
   await send("stop\n", "[ECMD]");
   await send("load\n", "[ECMD]");
 
   let stripped = stripBlankLines(stripComments(stripConsole(source)));
-  let ihex = convIHex(stripped);
+  let ihex = ihexFromString(stripped);
   console.log(stripped);
 
   let line = ihex;

@@ -17,11 +17,12 @@ static unsigned int output_position = 0;
 
 char *
 EMSCRIPTEN_KEEPALIVE
-convert_ihex (char *buffer) {
+strtoihex (char *buffer) {
     struct ihex_state ihex;
     ihex_address_t initial_address = 0;
-
     ihex_count_t count = strlen(buffer);
+
+    output_position = 0;
 
     ihex_init(&ihex);
     ihex_write_at_address(&ihex, initial_address);
